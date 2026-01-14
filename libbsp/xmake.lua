@@ -1,0 +1,8 @@
+target("libbsp")
+    set_languages("c99")
+    set_kind("static")
+    add_files("src/**.c")
+    add_includedirs("include", {public = true})
+    add_includedirs("src", {public = false})
+    add_headerfiles("include/**.h")
+target_end()

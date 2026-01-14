@@ -1,0 +1,8 @@
+set_project("libbsp")
+set_version("0.0.1", {build = "%Y%m%d%H%M"})
+set_license("GPLv3")
+set_description("A library to consume Quake 1 bsp map files")
+set_policy("build.warning",true)
+set_policy("package.install_locally", true)
+add_rules("mode.debug","mode.release","mode.releasedbg","mode.minsizerel","plugin.compile_commands.autoupdate", {outputdir = "$(builddir)"})
+includes("**/xmake.lua")
