@@ -1,7 +1,6 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include "libbsp/bsp.h"
 
@@ -39,117 +38,6 @@ typedef struct {
 	int32_t version; /* 29 for Q1*/
 	bsp_lump_t lumps[BSP_LUMP_COUNT];
 } bsp_header_t;
-
-
-typedef struct {
-	float normal[3];
-	float dist;
-	int32_t type; /* 0: Axial in x, 1: Axial in y, 2: Axial in z. Whatever that means*/
-} bsp_plane_t;
-
-
-typedef struct {
-	int32_t nummiptex;
-	int32_t* offsets;
-} bsp_miptex_dir_t;
-
-typedef struct {
-	char name[16];
-	uint32_t width;
-	uint32_t height;
-	uint32_t offsets[4];
-} bsp_miptex_t;
-
-typedef struct {
-	float x;
-	float y;
-	float z;
-} bsp_vertex_t;
-
-
-typedef struct {
-	uint8_t* data;
-	size_t size;
-} bsp_visdata_t;
-
-typedef struct {
-	int32_t plane_index;
-	int16_t children[2];
-	int16_t mins[3];
-	int16_t maxs[3];
-	uint16_t first_face;
-	uint16_t num_faces;
-} bsp_node_t;
-
-typedef struct {
-	float vecs[2][4]; 
-	int32_t miptex;
-	int32_t flags;
-} bsp_texinfo_t;
-
-typedef struct {
-	int16_t plane_index;
-	int16_t side; /* 0 front, 1 back */
-	int32_t first_edge; /* index into surfedges */
-	int16_t num_edges;
-	int16_t texinfo; /* index into texinfo */
-	uint8_t styles[4]; /* light styles */
-	int32_t lightofs; /* offset into lighting lump */
-} bsp_face_t;
-
-typedef struct {
-	uint8_t* data;
-	size_t size;
-} bsp_lighting_t;
-
-typedef struct {
-	int32_t planenum; /* offset into planes which splits the node*/
-	int16_t children[2]; /* > 0 : front child node, -1: outside model, -2: inside model */
-} bsp_clipnode_t;
-
-
-typedef struct {
-	int32_t contents;
-	int16_t mins[3];
-	int16_t maxs[3];
-	uint16_t first_face;
-	uint16_t num_faces;
-	int8_t ambient_level[4];
-} bsp_leaf_t;
-
-typedef struct {
-	int16_t* indices;
-	size_t count;
-} bsp_facelist_t;
-
-typedef struct {
-	uint16_t v[2]; /* vertex indices */
-} bsp_edge_t;
-
-typedef struct {
-	int32_t* indices;
-	size_t count;
-} bsp_surfedges_t;
-
-typedef struct {
-	float mins[3];
-	float maxs[3];
-	float origin[3];
-	int32_t headnode[4];
-	int32_t first_face;
-	int32_t num_faces;
-} bsp_model_t;
-
-typedef struct {
-	const char* key;
-	const char* value;
-} bsp_property_t;
-
-typedef struct {
-	bsp_property_t* properties;
-	size_t num_properties;
-} bsp_entity_t;
-
 
 struct bsp_t {
 	bsp_header_t header;
@@ -200,7 +88,6 @@ struct bsp_t {
 	bsp_model_t* models;
 	size_t num_models;
 };
-
 
 static void* bsp_malloc(bsp_t* bsp, size_t size) {
 	return bsp->alloc(size);
@@ -415,9 +302,9 @@ void free_entities(bsp_t* bsp) {
 		if(ent->properties) {
 			for(size_t j = 0; j < ent->num_properties; j++) {
 				bsp_property_t* prop = &ent->properties[j];
-				fprintf(stderr, "[BSP] Freeing prop %zu key %s of entity %zu\n",j, prop->key, i);
+				fprintf(stderr, "[BSP] Freeing prop %zu key %s of entity %zu\n", j, prop->key, i);
 				bsp_free_ptr(bsp, (void*)prop->key); /* cast to silence Wdiscarded-qualifiers */
-				fprintf(stderr, "[BSP] Freeing prop %zu value %s of entity %zu\n",j, prop->value, i);
+				fprintf(stderr, "[BSP] Freeing prop %zu value %s of entity %zu\n", j, prop->value, i);
 				bsp_free_ptr(bsp, (void*)prop->value);
 			}
 			fprintf(stderr, "[BSP] Freeing props of entity %zu\n", i);
@@ -579,10 +466,12 @@ static int read_visdata(FILE* fp, const bsp_lump_t* l, bsp_t* bsp) {
 	}
 	bsp->visdata.size = (size_t)l->length;
 	bsp->visdata.data = (uint8_t*)bsp_malloc(bsp, bsp->visdata.size);
-	if(!bsp->visdata.data && l->length)
+	if(!bsp->visdata.data && l->length) {
 		return 0;
-	if(!read_exact(fp, bsp->visdata.data, bsp->visdata.size))
+	}
+	if(!read_exact(fp, bsp->visdata.data, bsp->visdata.size)) {
 		return 0;
+	}
 	return 1;
 }
 
@@ -938,13 +827,6 @@ int bsp_load_file(bsp_t* out, FILE* fp) {
 	return 1;
 }
 
-size_t bsp_num_entities(const bsp_t* bsp) {
-	if(!bsp) {
-		return 0;
-	}
-	return bsp->num_entities;
-}
-
 size_t bsp_entity_num_properties(const bsp_t* bsp, size_t entity_index) {
 	if(!bsp) {
 		return 0;
@@ -1024,4 +906,122 @@ size_t bsp_lighting_size(const bsp_t* bsp) {
 
 size_t bsp_miptex_count(const bsp_t* bsp) {
 	return bsp ? bsp->miptex_dir.nummiptex : 0;
+}
+
+/* Header */
+const bsp_header_t* bsp_get_header(const bsp_t* bsp) {
+	return bsp ? &bsp->header : NULL;
+}
+
+size_t bsp_get_num_entities(const bsp_t* bsp) {
+	return bsp ? bsp->num_entities : 0;
+}
+const bsp_entity_t* bsp_get_entities(const bsp_t* bsp) {
+	return bsp ? bsp->entities : NULL;
+}
+
+/* Planes */
+size_t bsp_get_num_planes(const bsp_t* bsp) {
+	return bsp ? bsp->num_planes : 0;
+}
+const bsp_plane_t* bsp_get_planes(const bsp_t* bsp) {
+	return bsp ? bsp->planes : NULL;
+}
+
+/* Miptex */
+const bsp_miptex_dir_t* bsp_get_miptex_dir(const bsp_t* bsp) {
+	return bsp ? &bsp->miptex_dir : NULL;
+}
+bsp_miptex_t** bsp_get_miptex(const bsp_t* bsp) {
+	return bsp ? bsp->miptex : NULL;
+}
+const uint8_t* bsp_get_miptex_raw(const bsp_t* bsp) {
+	return bsp ? bsp->miptex_raw : NULL;
+}
+size_t bsp_get_miptex_raw_size(const bsp_t* bsp) {
+	return bsp ? bsp->miptex_raw_size : 0;
+}
+
+/* Vertices */
+size_t bsp_get_num_vertices(const bsp_t* bsp) {
+	return bsp ? bsp->num_vertices : 0;
+}
+const bsp_vertex_t* bsp_get_vertices(const bsp_t* bsp) {
+	return bsp ? bsp->vertices : NULL;
+}
+
+/* Visdata */
+const bsp_visdata_t* bsp_get_visdata(const bsp_t* bsp) {
+	return bsp ? &bsp->visdata : NULL;
+}
+
+/* Nodes */
+size_t bsp_get_num_nodes(const bsp_t* bsp) {
+	return bsp ? bsp->num_nodes : 0;
+}
+const bsp_node_t* bsp_get_nodes(const bsp_t* bsp) {
+	return bsp ? bsp->nodes : NULL;
+}
+
+/* Texinfo */
+size_t bsp_get_num_texinfo(const bsp_t* bsp) {
+	return bsp ? bsp->num_texinfo : 0;
+}
+const bsp_texinfo_t* bsp_get_texinfo(const bsp_t* bsp) {
+	return bsp ? bsp->texinfo : NULL;
+}
+
+/* Faces */
+size_t bsp_get_num_faces(const bsp_t* bsp) {
+	return bsp ? bsp->num_faces : 0;
+}
+const bsp_face_t* bsp_get_faces(const bsp_t* bsp) {
+	return bsp ? bsp->faces : NULL;
+}
+
+/* Lighting */
+const bsp_lighting_t* bsp_get_lighting(const bsp_t* bsp) {
+	return bsp ? &bsp->lighting : NULL;
+}
+
+/* Clipnodes */
+size_t bsp_get_num_clipnodes(const bsp_t* bsp) {
+	return bsp ? bsp->num_clipnodes : 0;
+}
+const bsp_clipnode_t* bsp_get_clipnodes(const bsp_t* bsp) {
+	return bsp ? bsp->clipnodes : NULL;
+}
+
+/* Leaves */
+size_t bsp_get_num_leaves(const bsp_t* bsp) {
+	return bsp ? bsp->num_leaves : 0;
+}
+const bsp_leaf_t* bsp_get_leaves(const bsp_t* bsp) {
+	return bsp ? bsp->leaves : NULL;
+}
+
+/* Facelist */
+const bsp_facelist_t* bsp_get_facelist(const bsp_t* bsp) {
+	return bsp ? &bsp->facelist : NULL;
+}
+
+/* Edges */
+size_t bsp_get_num_edges(const bsp_t* bsp) {
+	return bsp ? bsp->num_edges : 0;
+}
+const bsp_edge_t* bsp_get_edges(const bsp_t* bsp) {
+	return bsp ? bsp->edges : NULL;
+}
+
+/* Surfedges */
+const bsp_surfedges_t* bsp_get_surfedges(const bsp_t* bsp) {
+	return bsp ? &bsp->surfedges : NULL;
+}
+
+/* Models */
+size_t bsp_get_num_models(const bsp_t* bsp) {
+	return bsp ? bsp->num_models : 0;
+}
+const bsp_model_t* bsp_get_models(const bsp_t* bsp) {
+	return bsp ? bsp->models : NULL;
 }
